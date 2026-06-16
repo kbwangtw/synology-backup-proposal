@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synology ActiveProtect 備份規劃對比建議書 (DP340 vs DP7200)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&family=Noto+Sans+TC:wght=300;400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+    .card-shadow {
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.03);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Header Section -->
+  <header class="gradient-bg text-white py-12 px-6 shadow-lg border-b border-slate-700">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 bg-amber-500/20 border border-amber-500/30 text-amber-400 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3">
+          ActiveProtect 方案對比與安全評估
+        </div>
+        <h1 class="text-3xl md:text-4xl font-black tracking-tight text-white mb-2">
+          Synology 備份伺服器可行性建議報告
+        </h1>
+        <p class="text-slate-300 max-w-2xl text-sm md:text-base">
+          針對實體機、VM、M365 與 20 TB RD 巨量資料夾，深度評估桌上型 DP340 與機架式 DP7200 之承載極限與 WORM 鎖定安全性。
+        </p>
+      </div>
+      <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl text-right md:min-w-[240px]">
+        <div class="text-xs text-slate-400">專案評估對象</div>
+        <div class="text-lg font-bold text-white mb-1">資訊部門 / 決策主管</div>
+        <div class="text-xs text-slate-400">比較機型：<span class="text-amber-400 font-semibold">DP340 (桌上型) vs DP7200 (2U)</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-6xl mx-auto px-6 overflow-x-auto flex gap-6">
+      <button onclick="switchTab('overview')" id="tab-overview" class="py-4 px-1 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 whitespace-nowrap focus:outline-none transition-all">
+        1. 雙機種可行性與規格對比
+      </button>
+      <button onclick="switchTab('capacity')" id="tab-capacity" class="py-4 px-1 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap focus:outline-none transition-all">
+        2. 備份源容量與去重率計算
+      </button>
+      <button onclick="switchTab('retention')" id="tab-retention" class="py-4 px-1 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap focus:outline-none transition-all">
+        3. 7天備份與3天不可變動防護
+      </button>
+      <button onclick="switchTab('calculator')" id="tab-calculator" class="py-4 px-1 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap focus:outline-none transition-all flex items-center gap-1">
+        4. 雙機安全負載模擬器 <span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-full">動態</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="flex-grow max-w-6xl w-full mx-auto p-6">
+    
+    <!-- ================= SECTION 1: OVERVIEW & COMPARISON ================= -->
+    <section id="sec-overview" class="space-y-6">
+      
+      <!-- Crucial Alert Box -->
+      <div class="bg-rose-50 border-l-4 border-rose-500 p-5 rounded-r-2xl card-shadow">
+        <div class="flex items-start gap-3">
+          <div class="p-1.5 bg-rose-100 text-rose-600 rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-base font-bold text-rose-900">核心評估警告：DP340 於本案面臨效能與容量「極度臨界超載」風險</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              您的企業備份來源總容量為 <strong>24.6 TB</strong>（主因包含 20 TB 巨量 RD 資料夾）。而根據 Synology 官方規格，<strong>DP340 的建議備份來源容量上限僅為 20 TB</strong>。
+              若強行使用 DP340，第一天即處於超標狀態（123% 負載），這將造成去重複索引（Deduplication Index）記憶體不足，使備份效能與 WORM 鎖定運算產生嚴重瓶頸。強烈建議採用 <strong>DP7200 (上限 56 TB)</strong>。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Comparison Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- DP340 Card -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 card-shadow flex flex-col justify-between relative overflow-hidden">
+          <div class="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+            不建議 (高風險)
+          </div>
+          <div>
+            <div class="text-xs text-rose-500 font-bold mb-1">ActiveProtect DP340</div>
+            <h3 class="text-xl font-bold text-slate-900 mb-4">桌上型精巧一體機</h3>
+            
+            <div class="space-y-3 text-sm text-slate-600">
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">外觀規格 (Form Factor)</span>
+                <span class="font-semibold text-slate-800">5-Bay 桌上型 (Desktop)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">處理器 (CPU)</span>
+                <span class="font-semibold text-slate-800">AMD Ryzen V1780B (4核 / 8線)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">隨附記憶體 (Memory)</span>
+                <span class="font-semibold text-slate-800">16 GB DDR4 ECC (最大 32 GB)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">隨附儲存空間</span>
+                <span class="font-semibold text-slate-800">5 x 8 TB (RAID 5) / 可用約 24 TB</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">網路介面</span>
+                <span class="font-semibold text-slate-800">1 x 10GbE + 2 x 1GbE</span>
+              </div>
+              <div class="flex justify-between text-rose-600 font-bold">
+                <span>建議備份源上限 (Source Limit)</span>
+                <span>20 TB (20,000 GB)</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-slate-100 bg-rose-50/50 p-3 rounded-xl text-xs text-rose-900 leading-relaxed">
+            <strong>❌ 致命瓶頸：</strong>20T RD 資料夾在備份時，DP340 的 4 核心 CPU 在處理全域重複資料刪除與 3 天不可變防禦雜湊計算時將面臨處理器 100% 滿載，且 16GB 記憶體難以有效快取 24.6 TB 資料的去重指紋。
+          </div>
+        </div>
+
+        <!-- DP7200 Card -->
+        <div class="bg-white p-6 rounded-2xl border-2 border-emerald-500 card-shadow flex flex-col justify-between relative overflow-hidden">
+          <div class="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+            最佳推薦 (極度安全)
+          </div>
+          <div>
+            <div class="text-xs text-emerald-600 font-bold mb-1">ActiveProtect DP7200</div>
+            <h3 class="text-xl font-bold text-slate-900 mb-4">2U 高效能機架式一體機</h3>
+            
+            <div class="space-y-3 text-sm text-slate-600">
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">外觀規格 (Form Factor)</span>
+                <span class="font-semibold text-slate-800">2U 機架式 (Rackmount)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">處理器 (CPU)</span>
+                <span class="font-semibold text-slate-800">AMD EPYC 7272 (12核 / 24線)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">隨附記憶體 (Memory)</span>
+                <span class="font-semibold text-slate-800">32 GB DDR4 ECC (最大 512 GB)</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">隨附儲存空間</span>
+                <span class="font-semibold text-slate-800">10 x 12 TB (RAID 6) / 可用約 64-80 TB</span>
+              </div>
+              <div class="flex justify-between border-b pb-1.5">
+                <span class="text-slate-400">網路介面</span>
+                <span class="font-semibold text-slate-800">2 x 10GbE + 1 x 1GbE 系統管理</span>
+              </div>
+              <div class="flex justify-between text-emerald-600 font-bold">
+                <span>建議備份源上限 (Source Limit)</span>
+                <span>56 TB (56,000 GB)</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-slate-100 bg-emerald-50 p-3 rounded-xl text-xs text-emerald-900 leading-relaxed">
+            <strong>✔ 絕對優勢：</strong>12 核心伺服器級 CPU 專為多執行緒備份設計，32GB 快取能完美裝載去重指紋，硬體完全消化現有 24.6 TB 工作載量，且預留高達 120% 的未來擴充空間。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SECTION 2: CAPACITY ================= -->
+    <section id="sec-capacity" class="hidden space-y-6">
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 card-shadow">
+        <h3 class="text-lg font-bold text-slate-900 border-b pb-2 mb-4">企業備份來源精準盤點</h3>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 uppercase text-xs font-semibold">
+                <th class="p-3 rounded-l-lg">備份來源名稱</th>
+                <th class="p-3">數量</th>
+                <th class="p-3">單台原始容量</th>
+                <th class="p-3">原始總容量 (Raw)</th>
+                <th class="p-3">預估去重複與壓縮比率</th>
+                <th class="p-3 rounded-r-lg text-right">預估實體硬碟佔用</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-600">
+              <tr>
+                <td class="p-3 font-semibold text-slate-800">實體機 (Physical Server)</td>
+                <td class="p-3">2 台</td>
+                <td class="p-3">200 GB</td>
+                <td class="p-3">400 GB</td>
+                <td class="p-3 text-emerald-600 font-medium">1.5 : 1 (OS 層去重)</td>
+                <td class="p-3 text-right font-bold text-slate-800">~ 266 GB</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-slate-800">虛擬機器 (VM)</td>
+                <td class="p-3">6 台</td>
+                <td class="p-3">200 GB</td>
+                <td class="p-3">1,200 GB (1.2 TB)</td>
+                <td class="p-3 text-emerald-600 font-medium">2.0 : 1 (OS 關聯極高)</td>
+                <td class="p-3 text-right font-bold text-slate-800">~ 600 GB</td>
+              </tr>
+              <tr class="bg-blue-50/40">
+                <td class="p-3 font-semibold text-blue-900">RD 研發專屬資料夾</td>
+                <td class="p-3">1 組</td>
+                <td class="p-3">20 TB</td>
+                <td class="p-3 text-blue-900 font-bold">20,000 GB (20.0 TB)</td>
+                <td class="p-3 text-amber-600 font-medium">1.25 : 1 (多為代碼、壓縮包)</td>
+                <td class="p-3 text-right font-bold text-blue-950">~ 16,000 GB (16.0 TB)</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-slate-800">檔案伺服器 (File Server)</td>
+                <td class="p-3">1 台</td>
+                <td class="p-3">500 GB</td>
+                <td class="p-3">500 GB</td>
+                <td class="p-3 text-emerald-600 font-medium">1.2 : 1 (辦公文件)</td>
+                <td class="p-3 text-right font-bold text-slate-800">~ 416 GB</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-indigo-900">M365 帳號 (Mail & Teams)</td>
+                <td class="p-3">100 個</td>
+                <td class="p-3">預估每戶 25 GB</td>
+                <td class="p-3 text-indigo-900 font-semibold">2,500 GB (2.5 TB)</td>
+                <td class="p-3 text-emerald-600 font-medium">1.3 : 1 (群組附件去重)</td>
+                <td class="p-3 text-right font-bold text-slate-800">~ 1,923 GB (1.92 TB)</td>
+              </tr>
+              <tr class="bg-slate-50 font-bold text-slate-900">
+                <td class="p-3 text-slate-800" colspan="3">📊 統計總計</td>
+                <td class="p-3 text-blue-600 text-base">24.60 TB</td>
+                <td class="p-3 text-slate-500 font-normal">加權平均 ~ 1.28 : 1</td>
+                <td class="p-3 text-right text-blue-600 text-base" id="stat-total-physical">~ 19.20 TB</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 p-4 bg-slate-100 rounded-xl space-y-3">
+          <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1">
+            💡 重複資料刪除（Deduplication）對硬體的嚴苛需求說明
+          </h4>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Synology ActiveProtect 採用的<strong>區塊級全域重複資料刪除 (Global Deduplication)</strong> 技術，是在備份寫入時，將資料切割成數萬個區塊，並計算雜湊指紋進行對比。
+            當備份源高達 24.6 TB，指紋索引表（Deduplication Index Table）將極度龐大：
+          </p>
+          <ul class="list-disc pl-5 text-xs text-slate-600 space-y-1">
+            <li><strong>DP7200</strong> 擁有 32 GB DDR4 ECC 與專用的 RAID 1 SSD 快取快取，能流暢地在記憶體與 SSD 間快速交換指紋索引，確保 20TB RD 檔案寫入時，傳輸不降速。</li>
+            <li><strong>DP340</strong> 僅有 16 GB DDR4 記憶體。當指紋表超出實體記憶體承載量時，系統會被迫進行磁碟頻繁 I/O 交換，導致備份速度崩潰，夜間備份視窗可能超時，影響隔日公司日常網路頻寬。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SECTION 3: RETENTION & SECURITY ================= -->
+    <section id="sec-retention" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Policy Card -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 card-shadow space-y-4">
+          <h3 class="text-lg font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0yz"></path></svg>
+            7 天備份保存與 3 天不可變防禦
+          </h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            此備份策略是防止勒索軟體加密與員工惡意/誤刪檔案的最佳實施手段。
+          </p>
+
+          <div class="space-y-4">
+            <!-- 7 Days -->
+            <div class="flex items-start gap-3">
+              <div class="p-2 bg-blue-100 text-blue-600 rounded-lg mt-0.5 font-bold text-xs">
+                7天
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-slate-900">7 天基礎歷史版本保留</h4>
+                <p class="text-xs text-slate-500 mt-1">
+                  每日進行快速的增量備份，自動保留 7 天內的每一次復原點。第 8 天備份時，自動合併並回收首日舊資料，維持儲存容量平衡。
+                </p>
+              </div>
+            </div>
+
+            <!-- 3 Days Immutable -->
+            <div class="flex items-start gap-3">
+              <div class="p-2 bg-rose-100 text-rose-600 rounded-lg mt-0.5 font-bold text-xs">
+                3天
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-slate-900">3 天防篡改不可變備份 (WORM)</h4>
+                <p class="text-xs text-slate-500 mt-1">
+                  3 天內的所有備份版本處於<strong>最高防篡改（WORM）</strong>狀態。任憑駭客利用高權限，或甚至是管理員權限惡意連入備份後台，皆無法將此 3 天內的備份檔案刪除。時間期滿後才恢復可回收屬性。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Overhead differences under lock -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 card-shadow flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 border-b pb-2 mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              鎖定期間的硬體開銷對比
+            </h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              不可變動（Immutable）備份在寫入與校驗時，對一體機的 CPU 與快取效能有著額外的雜湊與對比算力消耗：
+            </p>
+            
+            <div class="space-y-3 text-xs">
+              <div class="p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                <span class="font-bold text-rose-800 block">⚠️ DP340 桌上型在 WORM 下的潛在危機</span>
+                <p class="text-slate-600 mt-1">
+                  由於 20 TB RD 資料夾有著極高頻率的小檔案變動。當 3 天不可變鎖定啟用時，DP340 需要在有限的 16GB 記憶體內進行高頻率的防篡改簽章運算。一旦 CPU 爆滿，將嚴重推遲 VM 和 Mail 的日常備份排程。
+                </p>
+              </div>
+              <div class="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <span class="font-bold text-emerald-800 block">✔ DP7200 機架式的極限抗壓能力</span>
+                <p class="text-slate-600 mt-1">
+                  配備 12 核 EPYC 高性能處理器，其運算通道能輕鬆在背景完成巨量 RD 檔案的多重 SHA256 簽章，並兼顧高達 100 個 M365 郵件箱的即時非對稱防篡改加密鎖定，確保備份工作準點完成。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SECTION 4: CALCULATOR ================= -->
+    <section id="sec-calculator" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Input Parameters -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 card-shadow space-y-4">
+          <h3 class="text-lg font-bold text-slate-900 border-b pb-2">備份資料量模擬調整</h3>
+          
+          <!-- RD Folder -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">RD 資料夾容量 (TB)</label>
+            <input type="range" id="input-rd" min="5" max="40" value="20" class="w-full text-blue-600" oninput="updateCalcs()">
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>5 TB</span>
+              <span class="text-blue-600 font-bold" id="label-rd">20 TB</span>
+              <span>40 TB</span>
+            </div>
+          </div>
+
+          <!-- M365 Users -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">M365 備份用戶數</label>
+            <input type="range" id="input-m365-users" min="20" max="250" value="100" class="w-full" oninput="updateCalcs()">
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>20 人</span>
+              <span class="text-indigo-600 font-bold" id="label-m365-users">100 人</span>
+              <span>250 人</span>
+            </div>
+          </div>
+
+          <!-- M365 Per User Size -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">M365 每戶均量 (GB)</label>
+            <input type="range" id="input-m365-size" min="5" max="100" value="25" class="w-full" oninput="updateCalcs()">
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>5 GB</span>
+              <span class="text-indigo-600 font-bold" id="label-m365-size">25 GB</span>
+              <span>100 GB</span>
+            </div>
+          </div>
+
+          <!-- Deduplication Ratio slider -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">全域預估去重複率</label>
+            <input type="range" id="input-dedup" min="1" max="2" step="0.05" value="1.28" class="w-full" oninput="updateCalcs()">
+            <div class="flex justify-between text-xs text-slate-500 mt-1">
+              <span>1.0x (無去重)</span>
+              <span class="text-emerald-600 font-bold" id="label-dedup">1.28x</span>
+              <span>2.0x (高去重)</span>
+            </div>
+          </div>
+
+          <!-- Future Annual Growth Rate -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">未來三年預計資料年增率</label>
+            <select id="input-growth" class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 block" onchange="updateCalcs()">
+              <option value="0.05">每年成長 5%</option>
+              <option value="0.10" selected>每年成長 10% (常規)</option>
+              <option value="0.15">每年成長 15%</option>
+              <option value="0.20">每年成長 20%</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Calculated Results Display -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 card-shadow flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 border-b pb-2 mb-4">DP340 vs DP7200 實施評估預覽</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="text-xs text-slate-400 block font-medium">總原始備份資料量 (Raw Source)</span>
+                <div class="text-2xl font-black text-slate-800" id="calc-total-raw">24.60 TB</div>
+                <span class="text-[10px] text-slate-500 block mt-1">（實體 + 虛擬 + RD + M365 總加）</span>
+              </div>
+              <div class="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+                <span class="text-xs text-slate-400 block font-medium">首期去重後硬碟佔用 (First Full)</span>
+                <div class="text-2xl font-black text-emerald-800" id="calc-total-physical">~ 19.22 TB</div>
+                <span class="text-[10px] text-slate-500 block mt-1">（經壓縮與去重複後實體大小）</span>
+              </div>
+            </div>
+
+            <!-- Dynamic Device Feasibility Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- DP340 Feasibility -->
+              <div id="card-dp340" class="p-4 rounded-xl border transition-all duration-300">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-xs font-bold uppercase">ActiveProtect DP340</span>
+                  <span id="badge-dp340" class="text-[10px] font-bold px-2 py-0.5 rounded-full"></span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div id="bar-dp340" class="h-full transition-all duration-300" style="width: 0%"></div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>來源容量：<span id="txt-dp340-raw" class="font-semibold"></span></span>
+                    <span>原廠建議上限：20 TB</span>
+                  </div>
+                  <p id="desc-dp340" class="text-[11px] leading-relaxed mt-2"></p>
+                </div>
+              </div>
+
+              <!-- DP7200 Feasibility -->
+              <div id="card-dp7200" class="p-4 rounded-xl border transition-all duration-300">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-xs font-bold uppercase">ActiveProtect DP7200</span>
+                  <span id="badge-dp7200" class="text-[10px] font-bold px-2 py-0.5 rounded-full"></span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div id="bar-dp7200" class="h-full transition-all duration-300" style="width: 0%"></div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>來源容量：<span id="txt-dp7200-raw" class="font-semibold"></span></span>
+                    <span>原廠建議上限：56 TB</span>
+                  </div>
+                  <p id="desc-dp7200" class="text-[11px] leading-relaxed mt-2"></p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="mt-6 border-t pt-4 text-xs text-slate-500 flex flex-col sm:flex-row sm:justify-between gap-2">
+            <span>💡 <strong>結論：</strong>DP340 因效能考量不符合此案規模，強烈建議編列預算採購 <strong>DP7200</strong> 確保營運不中斷。</span>
+            <span class="text-blue-600 font-semibold">✔ 建議決策：DP7200</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Final Decision Summary -->
+  <section class="bg-white border-t border-slate-200 py-10 px-6">
+    <div class="max-w-6xl mx-auto">
+      <h3 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+        資安暨架構規劃總結建議
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2">
+          <h4 class="font-bold text-rose-900 text-sm">⛔ 為什麼必須割捨 DP340？</h4>
+          <p class="text-xs text-rose-800 leading-relaxed">
+            主要核心痛點在於 <strong>20 TB RD 資料夾</strong> 已達到 DP340 整台硬體吞吐量上限。若未來幾個月 RD 資料僅成長 1 TB，DP340 隨即面臨全域重復刪除資料庫容量爆滿、備份失敗的連鎖效應，喪失企業「一體機」免除硬體頻繁更換的彈性本質。
+          </p>
+        </div>
+        <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-xl space-y-2">
+          <h4 class="font-bold text-emerald-900 text-sm">🚀 DP7200 帶來的長期 TCO 優勢</h4>
+          <p class="text-xs text-emerald-800 leading-relaxed">
+            雖然機架式 DP7200 初期採購成本高於 DP340，但它具備 12 核高速運算能力與 RAID 6 資料保護機制。在終身免去 100 個 M365 帳號、6 台 VM 以及 2 台實體主機昂貴授權費的前提下，它能無痛服役 5~7 年，是性價比與安全性最高的投資。
+          </p>
+        </div>
+        <div class="p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-2">
+          <h4 class="font-bold text-blue-900 text-sm">🔒 WORM 與還原安全性保障</h4>
+          <p class="text-xs text-blue-800 leading-relaxed">
+            無論是 DP340 或 DP7200，皆內建 3 天防篡改防線。然而 DP7200 具備雙 SSD 機群加速與 EPYC 處理器，當遭遇災難（如 ERP 或 VM 被鎖死）時，可利用 10GbE 骨幹提供「即時還原至 VMware/Hyper-V」功能，在 15 分鐘內即刻恢復營運。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="gradient-bg text-slate-400 text-xs py-6 px-6 text-center border-t border-slate-800">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+      <p>© 2026 企業資料保護中心. 專為 Synology ActiveProtect 設計.</p>
+      <div class="flex gap-4">
+        <a href="#" class="hover:text-white transition-colors">規格書參考</a>
+        <span>|</span>
+        <a href="#" class="hover:text-white transition-colors">WORM 防禦安全白皮書</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Interactivity Javascript -->
+  <script>
+    // Tab switching logic
+    function switchTab(tabName) {
+      // Hide all sections
+      document.getElementById('sec-overview').classList.add('hidden');
+      document.getElementById('sec-capacity').classList.add('hidden');
+      document.getElementById('sec-retention').classList.add('hidden');
+      document.getElementById('sec-calculator').classList.add('hidden');
+
+      // Unhighlight all tabs
+      const tabs = ['overview', 'capacity', 'retention', 'calculator'];
+      tabs.forEach(t => {
+        const tabBtn = document.getElementById(`tab-${t}`);
+        tabBtn.classList.remove('border-blue-600', 'text-blue-600');
+        tabBtn.classList.add('border-transparent', 'text-slate-500');
+      });
+
+      // Show current section and highlight current tab
+      document.getElementById(`sec-${tabName}`).classList.remove('hidden');
+      const activeTab = document.getElementById(`tab-${tabName}`);
+      activeTab.classList.remove('border-transparent', 'text-slate-500');
+      activeTab.classList.add('border-blue-600', 'text-blue-600');
+    }
+
+    // Capacity calculations
+    function updateCalcs() {
+      // Values from sliders
+      const rdVal = parseFloat(document.getElementById('input-rd').value);
+      const m365Users = parseInt(document.getElementById('input-m365-users').value);
+      const m365PerUserGb = parseFloat(document.getElementById('input-m365-size').value);
+      const dedupRatio = parseFloat(document.getElementById('input-dedup').value);
+      const growthRate = parseFloat(document.getElementById('input-growth').value);
+
+      // Constant sources
+      const physicalServersRaw = 0.4; // TB
+      const vmRaw = 1.2; // TB
+      const fsRaw = 0.5; // TB
+      const m365Raw = (m365Users * m365PerUserGb) / 1000.0; // TB
+      
+      // Update dynamic labels
+      document.getElementById('label-rd').innerText = rdVal + ' TB';
+      document.getElementById('label-m365-users').innerText = m365Users + ' 人';
+      document.getElementById('label-m365-size').innerText = m365PerUserGb + ' GB';
+      document.getElementById('label-dedup').innerText = dedupRatio.toFixed(2) + 'x';
+
+      // Total Raw Calculation
+      const totalRaw = physicalServersRaw + vmRaw + fsRaw + rdVal + m365Raw;
+      document.getElementById('calc-total-raw').innerText = totalRaw.toFixed(2) + ' TB';
+
+      // First Full Backup space calculation after deduplication
+      const totalPhysical = totalRaw / dedupRatio;
+      document.getElementById('calc-total-physical').innerText = '~ ' + totalPhysical.toFixed(2) + ' TB';
+
+      // ---------------- DP340 Logic ----------------
+      const dp340Limit = 20.0; // TB suggested backup source
+      const dp340Percent = (totalRaw / dp340Limit) * 100;
+      
+      document.getElementById('txt-dp340-raw').innerText = totalRaw.toFixed(1) + ' TB';
+      document.getElementById('bar-dp340').style.width = Math.min(dp340Percent, 100) + '%';
+      
+      const badgeDP340 = document.getElementById('badge-dp340');
+      const cardDP340 = document.getElementById('card-dp340');
+      const barDP340 = document.getElementById('bar-dp340');
+      const descDP340 = document.getElementById('desc-dp340');
+      
+      if (totalRaw > dp340Limit) {
+        badgeDP340.innerText = '🔴 極度危險 (超載 ' + dp340Percent.toFixed(0) + '%)';
+        badgeDP340.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700";
+        cardDP340.className = "p-4 rounded-xl border border-rose-200 bg-rose-50/30";
+        barDP340.className = "h-full transition-all duration-300 bg-rose-500";
+        descDP340.innerHTML = "<strong>警告：</strong>資料量已超出原廠 20 TB 的建議承載。記憶體不足將導致全域去重複引擎運算極慢，備份與還原容易逾時，極度不建議採用。";
+      } else {
+        badgeDP340.innerText = '🟢 勉強相容 (負載 ' + dp340Percent.toFixed(0) + '%)';
+        badgeDP340.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+        cardDP340.className = "p-4 rounded-xl border border-emerald-100 bg-emerald-50/20";
+        barDP340.className = "h-full transition-all duration-300 bg-emerald-500";
+        descDP340.innerHTML = "<strong>注意：</strong>雖然資料量在 20 TB 上限內，但因硬碟配置上限低（5-Bay），若將來資料微幅增長，將在半年內面臨硬體升级或重新採購之窘境。";
+      }
+
+      // ---------------- DP7200 Logic ----------------
+      const dp7200Limit = 56.0; // TB suggested backup source
+      const dp7200Percent = (totalRaw / dp7200Limit) * 100;
+
+      document.getElementById('txt-dp7200-raw').innerText = totalRaw.toFixed(1) + ' TB';
+      document.getElementById('bar-dp7200').style.width = Math.min(dp7200Percent, 100) + '%';
+      
+      const badgeDP7200 = document.getElementById('badge-dp7200');
+      const cardDP7200 = document.getElementById('card-dp7200');
+      const barDP7200 = document.getElementById('bar-dp7200');
+      const descDP7200 = document.getElementById('desc-dp7200');
+
+      if (totalRaw > dp7200Limit) {
+        badgeDP7200.innerText = '🔴 超出建議上限';
+        badgeDP7200.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700";
+        cardDP7200.className = "p-4 rounded-xl border border-rose-200 bg-rose-50/30";
+        barDP7200.className = "h-full transition-all duration-300 bg-rose-500";
+        descDP7200.innerHTML = "<strong>警告：</strong>資料量甚至超出了機架式旗艦機 DP7200 的上限，建議縮減非核心檔案的備份頻率。";
+      } else {
+        badgeDP7200.innerText = '🟢 極其安全 (負載 ' + dp7200Percent.toFixed(0) + '%)';
+        badgeDP7200.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+        cardDP7200.className = "p-4 rounded-xl border border-emerald-200 bg-emerald-50/10";
+        barDP7200.className = "h-full transition-all duration-300 bg-emerald-500";
+        descDP7200.innerHTML = "<strong>優勢：</strong>目前處於最健康的 30% ~ 50% 負載帶。12 核心 EPYC 處理器能在 1 小時內快速演算 24.6 TB 數據的 WORM 安全指紋與去重資料，具備極強的未來容載能力！";
+      }
+    }
+
+    // Run calculations once on load
+    window.onload = function() {
+      updateCalcs();
+    }
+  </script>
+</body>
+</html>
